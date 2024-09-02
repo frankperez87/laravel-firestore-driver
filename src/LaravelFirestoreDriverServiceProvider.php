@@ -32,5 +32,15 @@ class LaravelFirestoreDriverServiceProvider extends PackageServiceProvider
                 $config['options'] ?? [] // Handle options properly
             );
         });
+
+        app()->singleton('firestore', function ($app) {
+            $config = $app['config']['database.connections.firestore'];
+            $client = new FirestoreClient([
+                'projectId' => $config['project_id'],
+                'keyFilePath' => $config['key_file_path'] ?? null, // optional
+            ]);
+
+            return new FirestoreClientConnection($client, $config);
+        });
     }
 }

@@ -109,23 +109,22 @@ class FirestoreModel extends Model
      */
     protected function performInsert(EloquentBuilder $query)
     {
-        // Fire the "creating" event
         if ($this->fireModelEvent('creating') === false) {
             return false;
         }
 
-        // Generate a new ID if not already set
+        // Generate a new Firestore document ID if not already set
         if (! $this->{$this->getKeyName()}) {
-            $this->{$this->getKeyName()} = $query->getModel()->getConnection()->getClient()->collection($this->getTable())->newDocument()->id();
+            $this->{$this->getKeyName()} = $query->getModel()->getConnection()
+                ->getClient()->collection($this->getTable())->newDocument()->id();
         }
 
-        // Insert the document into Firestore
-        $query->getModel()->getConnection()->table($this->getTable())->insert($this->attributesToArray());
+        // Use Firestore's collection reference to insert the document
+        $query->getModel()->getConnection()->table($this->getTable())
+            ->insert($this->attributesToArray());
 
-        // Mark the model as existing after inserting
         $this->exists = true;
 
-        // Fire the "created" event
         $this->fireModelEvent('created', false);
 
         return true;
@@ -138,7 +137,6 @@ class FirestoreModel extends Model
      */
     protected function performUpdate(EloquentBuilder $query)
     {
-        // Fire the "updating" event
         if ($this->fireModelEvent('updating') === false) {
             return false;
         }
@@ -147,6 +145,8 @@ class FirestoreModel extends Model
         $dirty = $this->getDirty();
 
         if (count($dirty) > 0) {
+
+            dd($this->getKeyName(), '=', $this->getKey());
             // Update the document in Firestore
             $query->getModel()->getConnection()->table($this->getTable())
                 ->where($this->getKeyName(), '=', $this->getKey())
@@ -154,7 +154,6 @@ class FirestoreModel extends Model
 
             $this->syncChanges();
 
-            // Fire the "updated" event
             $this->fireModelEvent('updated', false);
         }
 
@@ -182,12 +181,23 @@ class FirestoreModel extends Model
             // Convert Firestore document to a model instance
             $model = $instance->newFromBuilder($document->data());
             $model->setAttribute($instance->getKeyName(), $id);
-            $model->exists = true; // Mark the model as existing
+            $model->exists = true;
 
             return $model;
         }
 
         throw (new ModelNotFoundException)->setModel(get_class($instance), $id);
+    }
+
+    /**
+     * Get a new query to restore one or more models by their queueable IDs.
+     *
+     * @param  array|int  $ids
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function newQueryForRestoration($ids)
+    {
+        return $this->newQueryWithoutScopes()->whereIn($this->getKeyName(), (array) $ids);
     }
 
     /**
@@ -200,9 +210,8 @@ class FirestoreModel extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            // Generate a unique Firestore document ID if not already set
             if (! $model->getKey()) {
-                $model->setKey(app('firestore')->collection($model->getTable())->newDocument()->id());
+                $model->setKey($model->getConnection()->getClient()->collection($model->getTable())->newDocument()->id());
             }
         });
     }

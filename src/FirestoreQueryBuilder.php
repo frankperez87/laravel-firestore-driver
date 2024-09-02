@@ -44,6 +44,42 @@ class FirestoreQueryBuilder extends Builder
     }
 
     /**
+     * Set the columns to be selected.
+     *
+     * @param  array|mixed  $columns
+     * @return $this
+     */
+    public function select($columns = ['*'])
+    {
+        $this->columns = is_array($columns) ? $columns : func_get_args();
+
+        return $this;
+    }
+
+    /**
+     * Determine if any rows exist for the current query.
+     *
+     * @return bool
+     */
+    public function exists()
+    {
+        // Ensure that all where conditions are applied
+        $query = $this->firestoreQuery;
+
+        // Limit the query to 1 document for efficiency
+        $documents = $query->limit(1)->documents();
+
+        // Check if at least one document exists
+        foreach ($documents as $document) {
+            if ($document->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Execute the query as a "select" statement.
      *
      * @param  array|string  $columns

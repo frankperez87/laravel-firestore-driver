@@ -115,6 +115,36 @@ class FirestoreQueryBuilder extends Builder
     }
 
     /**
+     * Add a "where in" clause to the query.
+     *
+     * @param  string|\Illuminate\Contracts\Database\Query\Expression  $column
+     * @param  mixed  $values
+     * @param  string  $boolean
+     * @param  bool  $not
+     * @return $this
+     */
+    public function whereIn($column, $values, $boolean = 'and', $not = false)
+    {
+        if ($not) {
+            throw new \InvalidArgumentException('Firestore does not support "where not in" queries.');
+        }
+
+        // Ensure Firestore supports the 'in' operator.
+        if (empty($values)) {
+            throw new \InvalidArgumentException('The values array for whereIn must not be empty.');
+        }
+
+        // Add 'in' clause to Firestore query
+        $this->firestoreQuery = $this->firestoreQuery->where($column, 'in', $values);
+
+        // Track the where clause
+        $type = 'In';
+        $this->wheres[] = compact('type', 'column', 'values', 'boolean', 'not');
+
+        return $this;
+    }
+
+    /**
      * Add an array of "where" clauses to the query.
      *
      * @param  mixed  $column

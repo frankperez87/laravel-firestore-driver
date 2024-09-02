@@ -70,7 +70,12 @@ class FirestoreModel extends Model
      */
     public function getKey()
     {
-        return $this->getAttribute($this->getKeyName());
+        $key = $this->getAttribute($this->getKeyName());
+
+        // Debugging: log or print the key value
+        logger()->info('Getting Key:', ['key' => $key]);
+
+        return $key;
     }
 
     /**
@@ -127,6 +132,9 @@ class FirestoreModel extends Model
 
         $this->fireModelEvent('created', false);
 
+        // Reset the model state after insertion
+        $this->syncOriginal();
+
         return true;
     }
 
@@ -145,8 +153,6 @@ class FirestoreModel extends Model
         $dirty = $this->getDirty();
 
         if (count($dirty) > 0) {
-
-            dd($this->getKeyName(), '=', $this->getKey());
             // Update the document in Firestore
             $query->getModel()->getConnection()->table($this->getTable())
                 ->where($this->getKeyName(), '=', $this->getKey())
@@ -179,8 +185,10 @@ class FirestoreModel extends Model
 
         if ($document->exists()) {
             // Convert Firestore document to a model instance
-            $model = $instance->newFromBuilder($document->data());
-            $model->setAttribute($instance->getKeyName(), $id);
+            $data = $document->data();
+            $data[$instance->getKeyName()] = $id; // Ensure the ID is set in the model data
+
+            $model = $instance->newFromBuilder($data);
             $model->exists = true;
 
             return $model;
@@ -200,19 +208,19 @@ class FirestoreModel extends Model
         return $this->newQueryWithoutScopes()->whereIn($this->getKeyName(), (array) $ids);
     }
 
-    /**
-     * Override the default method to use Firestore document IDs.
-     *
-     * @return void
-     */
-    public static function boot()
-    {
-        parent::boot();
+    // /**
+    //  * Override the default method to use Firestore document IDs.
+    //  *
+    //  * @return void
+    //  */
+    // public static function boot()
+    // {
+    //     parent::boot();
 
-        static::creating(function ($model) {
-            if (! $model->getKey()) {
-                $model->setKey($model->getConnection()->getClient()->collection($model->getTable())->newDocument()->id());
-            }
-        });
-    }
+    //     static::creating(function ($model) {
+    //         if (! $model->getKey()) {
+    //             $model->setKey($model->getConnection()->getClient()->collection($model->getTable())->newDocument()->id());
+    //         }
+    //     });
+    // }
 }

@@ -25,7 +25,12 @@ class LaravelFirestoreDriverServiceProvider extends PackageServiceProvider
                 'keyFilePath' => $config['key_file_path'] ?? null, // optional
             ]);
 
-            return new FirestoreClientConnection($client, $config);
+            // Ensure correct instantiation of FirestoreClientConnection
+            return new FirestoreClientConnection(
+                $client,
+                $config,
+                $config['options'] ?? [] // Handle options properly
+            );
         });
     }
 }

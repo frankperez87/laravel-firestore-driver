@@ -1,6 +1,6 @@
 <?php
 
-// config for LaravelFirestore/LaravelFirestoreDriver
 return [
-    'credentials' => env('FIREBASE_CREDENTIALS', env('GOOGLE_APPLICATION_CREDENTIALS')),
+    'project_id' => env('FIRESTORE_PROJECT_ID'),
+    'key_file_path' => env('FIRESTORE_KEY_FILE_PATH'),
 ];

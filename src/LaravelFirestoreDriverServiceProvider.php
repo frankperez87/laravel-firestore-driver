@@ -2,6 +2,7 @@
 
 namespace LaravelFirestore\LaravelFirestoreDriver;
 
+use Google\Cloud\Firestore\FirestoreClient;
 use LaravelFirestore\LaravelFirestoreDriver\Commands\LaravelFirestoreDriverHealthCheckCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -12,7 +13,19 @@ class LaravelFirestoreDriverServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('laravel-firestore-driver')
-            ->hasConfigFile()
+            ->hasConfigFile('firestore-driver')
             ->hasCommand(LaravelFirestoreDriverHealthCheckCommand::class);
+    }
+
+    public function packageBooted()
+    {
+        app('db')->extend('firestore', function ($config) {
+            $client = new FirestoreClient([
+                'projectId' => $config['project_id'],
+                'keyFilePath' => $config['key_file_path'] ?? null, // optional
+            ]);
+
+            return new FirestoreClientConnection($client, $config);
+        });
     }
 }

@@ -2,37 +2,57 @@
 
 namespace LaravelFirestore\LaravelFirestoreDriver\Commands;
 
+use Google\Cloud\Core\Exception\GoogleException;
 use Illuminate\Console\Command;
-use Kreait\Firebase\Factory;
+use Illuminate\Support\Facades\DB;
+use LaravelFirestore\LaravelFirestoreDriver\FirestoreClientConnection;
 
 class LaravelFirestoreDriverHealthCheckCommand extends Command
 {
-    public $signature = 'laravel-firestore-driver:health-check';
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'firestore:health-check';
 
-    public $description = 'Checks connection status of Firestore';
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Check the health of the Firestore connection.';
 
-    public function handle(): int
+    /**
+     * Execute the console command.
+     *
+     * @return int
+     */
+    public function handle()
     {
-        $this->comment('Checking connection status of Firestore...');
+        $this->info('Starting Firestore health check...');
 
         try {
-            $firebase = (new Factory)->withServiceAccount(config('firestore-driver.credentials'));
+            // Attempt to get a Firestore connection
+            /** @var FirestoreClientConnection $connection */
+            $connection = DB::connection('firestore');
 
-            $firestore = $firebase->createFirestore();
+            // Try running a simple query to ensure the connection is valid
+            $connection->table('health_check')->limit(1)->get();
 
-            $collectionReference = $firestore->database()->collection('test_collection');
+            $this->info('Successfully connected to Firestore.');
+        } catch (GoogleException $e) {
+            $this->error('Failed to connect to Firestore: '.$e->getMessage());
 
-            $collectionReference->documents();
-
-            $this->info('Connection to Firestore is successful!');
+            return 1;
         } catch (\Exception $e) {
             $this->error('An unexpected error occurred: '.$e->getMessage());
 
-            return self::FAILURE;
+            return 1;
         }
 
-        $this->comment('All done');
+        $this->info('Firestore connection is healthy.');
 
-        return self::SUCCESS;
+        return 0;
     }
 }

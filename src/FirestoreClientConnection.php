@@ -88,9 +88,10 @@ class FirestoreClientConnection extends Connection
      */
     public function commit()
     {
+        // No explicit commit is needed for Firestore transactions.
+        // The transaction is committed automatically when the transaction closure completes.
         if ($this->transaction) {
-            $this->transaction->commit();
-            $this->transaction = null;
+            $this->transaction = null; // Clear the transaction to indicate it's finished.
         }
     }
 
@@ -102,8 +103,10 @@ class FirestoreClientConnection extends Connection
      */
     public function rollBack($toLevel = null)
     {
+        // Firestore transactions do not have an explicit rollback.
+        // Transactions are simply not committed if there is an error.
         if ($this->transaction) {
-            $this->transaction->rollback();
+            // Just clear the transaction to indicate it's no longer in progress.
             $this->transaction = null;
         }
     }

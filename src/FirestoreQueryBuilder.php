@@ -217,23 +217,120 @@ class FirestoreQueryBuilder extends Builder
         return $values['id'];
     }
 
-    public function update(array $values)
+    /**
+     * Insert new records into the Firestore database while ignoring errors.
+     *
+     * @return int Number of records successfully inserted.
+     */
+    public function insertOrIgnore(array $values)
     {
-        // Extract the ID from the query conditions
-        $id = $this->extractIdFromWhereClause();
-
-        // Ensure that we have an ID to update the document
-        if (! $id) {
-            throw new \InvalidArgumentException('An ID is required to update a document in Firestore.');
+        if (empty($values)) {
+            return 0;
         }
 
-        // Get the document reference by ID
-        $documentReference = $this->collectionReference->document($id);
+        // Ensure $values is an array of arrays
+        if (! is_array(reset($values))) {
+            $values = [$values];
+        } else {
+            foreach ($values as $key => $value) {
+                ksort($value);
+                $values[$key] = $value;
+            }
+        }
 
-        // Update the document in Firestore
-        $documentReference->set($values, ['merge' => true]);
+        $insertedCount = 0;
 
-        return true; // Return true if the update is successful
+        foreach ($values as $value) {
+            // Check if an 'id' is set, otherwise generate a new one
+            if (! isset($value['id'])) {
+                $value['id'] = $this->collectionReference->newDocument()->id();
+            }
+
+            // Check if the document already exists
+            $document = $this->collectionReference->document($value['id'])->snapshot();
+            if ($document->exists()) {
+                // Skip this document as it already exists
+                continue;
+            }
+
+            // Insert the document
+            try {
+                $this->collectionReference->document($value['id'])->set($value);
+                $insertedCount++;
+            } catch (\Exception $e) {
+                // Handle any other errors gracefully (e.g., log the error, etc.)
+                continue;
+            }
+        }
+
+        return $insertedCount; // Return the count of successfully inserted documents
+    }
+
+    /**
+     * Delete records from the Firestore database.
+     *
+     * @param  mixed  $id
+     * @return int
+     */
+    public function delete($id = null)
+    {
+        // If an ID is passed to the method, we will set the where clause to check the
+        // ID to let developers simply and quickly remove a single document from Firestore.
+        if (! is_null($id)) {
+            $this->where('id', '=', $id);
+        }
+
+        // Get the IDs from the where clause if set.
+        $documentIds = $this->extractIdFromWhereClause();
+
+        if (empty($documentIds)) {
+            throw new \InvalidArgumentException('An ID or set of IDs is required to delete a document in Firestore.');
+        }
+
+        // Convert a single ID into an array if necessary
+        if (! is_array($documentIds)) {
+            $documentIds = [$documentIds];
+        }
+
+        $deletedCount = 0;
+
+        // Delete each document by its ID
+        foreach ($documentIds as $documentId) {
+            $this->collectionReference->document($documentId)->delete();
+            $deletedCount++;
+        }
+
+        // Return the count of deleted documents
+        return $deletedCount;
+    }
+
+    public function update(array $values)
+    {
+        // Extract the IDs from the query conditions
+        $ids = $this->extractIdFromWhereClause();
+
+        // Ensure that we have IDs to update the document
+        if (empty($ids)) {
+            throw new \InvalidArgumentException('An ID or set of IDs is required to update documents in Firestore.');
+        }
+
+        // Convert a single ID into an array if necessary
+        if (! is_array($ids)) {
+            $ids = [$ids];
+        }
+
+        $updatedCount = 0;
+
+        // Update each document by its ID
+        foreach ($ids as $id) {
+            $documentReference = $this->collectionReference->document($id);
+
+            // Update the document in Firestore
+            $documentReference->set($values, ['merge' => true]);
+            $updatedCount++;
+        }
+
+        return $updatedCount; // Return the count of successfully updated documents
     }
 
     /**
@@ -243,13 +340,23 @@ class FirestoreQueryBuilder extends Builder
      */
     protected function extractIdFromWhereClause()
     {
+        $ids = [];
+
         foreach ($this->wheres as $where) {
+            // Check for a "Basic" where clause with an "id" column and "==" operator.
             if ($where['type'] === 'Basic' && $where['column'] === 'id' && $where['operator'] === '==') {
-                return $where['value'];
+                $ids[] = $where['value'];
+            }
+
+            // Check for an "In" where clause with a "key" column.
+            if ($where['type'] === 'In' && $where['column'] === 'key') {
+                if (isset($where['values']) && is_array($where['values'])) {
+                    $ids = array_merge($ids, $where['values']); // Merge all values into the $ids array.
+                }
             }
         }
 
-        return null; // Return null if no ID is found
+        return ! empty($ids) ? $ids : null; // Return the array of IDs or null if no IDs are found.
     }
 
     /**

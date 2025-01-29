@@ -87,12 +87,23 @@ class FirestoreQueryBuilder extends Builder
      */
     public function get($columns = ['*'])
     {
+        if ($this->firestoreQuery instanceof \Google\Cloud\Firestore\DocumentReference) {
+            // If querying a specific document by ID
+            $document = $this->firestoreQuery->snapshot();
+            if ($document->exists()) {
+                return collect([array_merge(['documentId' => $document->id()], $document->data())]);
+            }
+
+            return collect([]); // Return empty collection if document not found
+        }
+
+        // Default case: Querying a collection
         $documents = $this->firestoreQuery->documents();
         $results = [];
 
         foreach ($documents as $document) {
             if ($document->exists()) {
-                $results[] = $document->data();
+                $results[] = array_merge(['documentId' => $document->id()], $document->data());
             }
         }
 
@@ -498,7 +509,14 @@ class FirestoreQueryBuilder extends Builder
     public function setTableVariablePaths(array $variables)
     {
         foreach ($variables as $key => $value) {
-            $this->firestoreQuery = $this->firestoreQuery->where($key, '==', $value);
+            if ($key === 'documentId') {
+                // Fetch a specific document by its ID
+                $this->firestoreQuery = $this->collectionReference->document($value);
+
+                return $this; // Stop further processing as we're directly targeting a document
+            } else {
+                $this->firestoreQuery = $this->firestoreQuery->where($key, '==', $value);
+            }
         }
 
         return $this;

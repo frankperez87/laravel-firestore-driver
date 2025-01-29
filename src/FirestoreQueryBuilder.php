@@ -489,4 +489,18 @@ class FirestoreQueryBuilder extends Builder
             ]
         );
     }
+
+    /**
+     * Set additional query constraints based on table variable paths.
+     *
+     * @return $this
+     */
+    public function setTableVariablePaths(array $variables)
+    {
+        foreach ($variables as $key => $value) {
+            $this->firestoreQuery = $this->firestoreQuery->where($key, '==', $value);
+        }
+
+        return $this;
+    }
 }
